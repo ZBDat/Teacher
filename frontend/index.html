@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teacher Grading Agent</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h1 class="logo">🎓 Teacher Agent</h1>
+
+      <section class="panel">
+        <h2>配置 Configuration</h2>
+        <label>
+          OpenAI API Key
+          <input type="password" id="apiKey" placeholder="sk-..." />
+        </label>
+        <label>
+          模型 Model
+          <select id="modelSelect">
+            <option value="gpt-4o">gpt-4o</option>
+            <option value="gpt-4o-mini">gpt-4o-mini</option>
+            <option value="gpt-4-turbo">gpt-4-turbo</option>
+          </select>
+        </label>
+        <label>
+          评分标准 Rubric
+          <textarea id="rubric" rows="5" placeholder="Enter grading rubric here…"></textarea>
+        </label>
+        <button id="saveConfig" class="btn btn-secondary">保存 Save</button>
+      </section>
+
+      <section class="panel">
+        <h2>上传文件 Upload Files</h2>
+        <div class="drop-zone" id="dropZone">
+          <span>拖拽 PDF 到此处或点击选择</span>
+          <input type="file" id="fileInput" accept=".pdf" multiple hidden />
+        </div>
+        <ul id="fileList" class="file-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>PDF → Markdown</h2>
+        <select id="pdfSelect">
+          <option value="">-- 选择已上传文件 --</option>
+        </select>
+        <button id="convertBtn" class="btn btn-primary">转换 Convert</button>
+        <div id="conversionStatus" class="status-msg"></div>
+      </section>
+    </aside>
+
+    <!-- Main chat area -->
+    <main class="chat-area">
+      <div class="chat-messages" id="chatMessages">
+        <div class="message assistant">
+          <div class="bubble">
+            你好！我是你的 AI 助教。你可以上传学生作业（PDF），然后告诉我你需要什么帮助，例如评分、提供反馈或总结。<br/>
+            Hello! I'm your AI teaching assistant. Upload student assignments (PDF) and let me know how I can help — grading, feedback, or summaries.
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-row">
+        <textarea
+          id="userInput"
+          placeholder="输入消息 / Type a message…"
+          rows="3"
+        ></textarea>
+        <button id="sendBtn" class="btn btn-primary">发送 Send</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

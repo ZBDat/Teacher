@@ -1,0 +1,301 @@
+/* ============================================================
+   Teacher Grading Agent – Stylesheet
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --primary:    #4f6ef7;
+  --primary-dk: #3a57d4;
+  --bg:         #f4f6fb;
+  --sidebar-bg: #1e2235;
+  --sidebar-fg: #cdd3e8;
+  --bubble-usr: #4f6ef7;
+  --bubble-ast: #ffffff;
+  --border:     #dde2f0;
+  --radius:     10px;
+  --shadow:     0 2px 12px rgba(0,0,0,.10);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ---- Layout ---- */
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  width: 320px;
+  min-width: 260px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-fg);
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  padding: 1.4rem 1rem;
+  overflow-y: auto;
+}
+
+.logo {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: #fff;
+  padding-bottom: .6rem;
+  border-bottom: 1px solid #333a58;
+}
+
+.panel {
+  background: #252b44;
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+}
+
+.panel h2 {
+  font-size: .85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #7b86b2;
+  margin-bottom: .2rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  font-size: .82rem;
+  color: var(--sidebar-fg);
+}
+
+input[type="password"],
+input[type="text"],
+select,
+textarea {
+  background: #1e2235;
+  border: 1px solid #333a58;
+  border-radius: 6px;
+  color: #e2e7f5;
+  font-size: .85rem;
+  padding: .45rem .65rem;
+  outline: none;
+  transition: border-color .2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary);
+}
+
+textarea { resize: vertical; }
+
+/* ---- Drop zone ---- */
+.drop-zone {
+  border: 2px dashed #3b4369;
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  font-size: .82rem;
+  transition: background .2s, border-color .2s;
+  color: #7b86b2;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  background: #1e2a4a;
+  border-color: var(--primary);
+  color: #aab4e0;
+}
+
+/* ---- File list ---- */
+.file-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+.file-list li {
+  background: #1e2235;
+  border-radius: 6px;
+  padding: .35rem .6rem;
+  font-size: .78rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.file-list li:hover { background: #2a3256; }
+
+.file-list li .tag {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 4px;
+  padding: 0 .35rem;
+  font-size: .7rem;
+}
+
+.file-list li.converting { opacity: .6; }
+.file-list li.done .tag { background: #22b56b; }
+.file-list li.error .tag { background: #e05e5e; }
+
+/* ---- Buttons ---- */
+.btn {
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: .85rem;
+  font-weight: 600;
+  padding: .55rem 1.1rem;
+  transition: background .2s, transform .1s;
+}
+
+.btn:active { transform: scale(.97); }
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover { background: var(--primary-dk); }
+
+.btn-secondary {
+  background: #333a58;
+  color: #cdd3e8;
+}
+
+.btn-secondary:hover { background: #3d4566; }
+
+/* ---- Status message ---- */
+.status-msg {
+  font-size: .78rem;
+  min-height: 1.2em;
+  color: #7b86b2;
+}
+
+.status-msg.ok  { color: #22b56b; }
+.status-msg.err { color: #e05e5e; }
+
+/* ---- Chat area ---- */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ---- Message bubbles ---- */
+.message {
+  display: flex;
+}
+
+.message.user  { justify-content: flex-end; }
+.message.assistant { justify-content: flex-start; }
+
+.bubble {
+  max-width: 72%;
+  padding: .75rem 1rem;
+  border-radius: var(--radius);
+  font-size: .9rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  box-shadow: var(--shadow);
+}
+
+.message.user .bubble {
+  background: var(--bubble-usr);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+
+.message.assistant .bubble {
+  background: var(--bubble-ast);
+  color: #2a2e45;
+  border-bottom-left-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+/* Typing indicator */
+.typing .bubble {
+  display: flex;
+  gap: .4rem;
+  align-items: center;
+}
+
+.dot {
+  width: 8px; height: 8px;
+  background: #b0b8d8;
+  border-radius: 50%;
+  animation: bounce .9s infinite ease-in-out;
+}
+
+.dot:nth-child(2) { animation-delay: .15s; }
+.dot:nth-child(3) { animation-delay: .30s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%            { transform: translateY(-6px); }
+}
+
+/* ---- Input row ---- */
+.chat-input-row {
+  display: flex;
+  gap: .7rem;
+  padding: 1rem 2rem;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+
+.chat-input-row textarea {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: #2a2e45;
+  font-size: .9rem;
+  padding: .6rem .9rem;
+  resize: none;
+}
+
+.chat-input-row textarea:focus {
+  border-color: var(--primary);
+}
+
+.chat-input-row .btn {
+  align-self: flex-end;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 700px) {
+  .sidebar { width: 100%; height: auto; }
+  .app { flex-direction: column; }
+  .chat-messages { padding: 1rem; }
+  .chat-input-row { padding: .8rem 1rem; }
+}

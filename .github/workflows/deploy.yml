@@ -1,0 +1,40 @@
+name: Auto Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 120.55.1.225
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            echo "[deploy] start $(date '+%Y-%m-%d %H:%M:%S')"
+            cd /opt/Teacher
+            echo "[deploy] current branch: $(git rev-parse --abbrev-ref HEAD)"
+            git fetch --all --prune
+            git reset --hard origin/main
+            python3 -m pip install -r requirements.txt
+            pkill -f "streamlit run streamlit_app.py" || true
+            nohup ./run.sh > /opt/Teacher/deploy.log 2>&1 &
+            sleep 3
+            pgrep -f "streamlit run streamlit_app.py" >/dev/null
+            echo "[deploy] process running"
+            echo "[deploy] done $(date '+%Y-%m-%d %H:%M:%S')"
+
+# Required repository secrets:
+# - SSH_USER: SSH username for server 120.55.1.225
+# - SSH_PRIVATE_KEY: private key content for SSH auth
+# Optional repository secret:
+# - SSH_PORT: SSH port (defaults to 22)

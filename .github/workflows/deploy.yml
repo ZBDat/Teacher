@@ -3,7 +3,7 @@ name: Auto Deploy
 on:
   push:
     branches:
-      - main
+      - policy-maker
   workflow_dispatch:
 
 permissions: {}

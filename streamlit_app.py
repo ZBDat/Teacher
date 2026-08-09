@@ -1,40 +1,32 @@
 # -----------------------------------------------------------------------------
-# 宏观经济政策 AI 助手（Streamlit 应用）
+# 宏观经济政策模拟器（Streamlit 应用）
 # -----------------------------------------------------------------------------
-# 前端交互形式仿照 streamlit 官方 demo-ai-assistant：
-#   - 首次进入时展示欢迎区 + 示例问题 pills + 对话输入框
-#   - 提问后以聊天气泡展示历史，底部为后续输入框，标题栏有 Restart 按钮
+# 前端交互沿袭原有聊天气泡式结构：
+#   - 首次进入展示开场说明 + "开始新模拟"按钮，触发随机生成经济场景
+#   - 场景生成后展示其描述文本，输入框用于提交用户的宏观对策
+#   - 每轮由模型推演 + 追问；回答不合理时按标记块给出 3 个对策按钮
+#   - 顶部标题栏有"新模拟"按钮用于重新开始
 # 后端通过 OpenAI Python SDK 调用 DeepSeek 的 API（见 llm_client.py）。
 from htbuilder import div, styles
 from htbuilder.units import rem
-import os
-
 import streamlit as st
 
 import llm_client
-from prompts import build_chat_messages, get_system_prompt
+from prompts import (
+    build_chat_messages,
+    extract_options,
+    get_scenario_prompt,
+    get_system_prompt,
+)
 
 # 页面基础配置
-st.set_page_config(page_title="宏观经济政策助手", page_icon="🌐", layout="centered")
+st.set_page_config(page_title="宏观经济政策模拟器", page_icon="🧭", layout="centered")
 
-# 示例问题（pills 中展示的"快捷入口"）
-SUGGESTIONS = {
-    ":blue[:material/currency_exchange:] 什么是货币政策？": (
-        "用通俗的语言解释什么是货币政策，以及它如何影响宏观经济。"
-    ),
-    ":green[:material/account_balance:] 财政政策如何刺激经济？": (
-        "财政政策通常通过哪些手段来刺激经济？请举例说明。"
-    ),
-    ":orange[:material/trending_up:] 通胀成因与对策": (
-        "请分析当前高通胀的主要成因，并给出对应的宏观调控建议。"
-    ),
-    ":violet[:material/public:] 货币 vs 财政政策比较": (
-        "比较货币政策和财政政策在作用机制与适用场景上的异同。"
-    ),
-    ":red[:material/dashboard:] 利率如何影响汇率？": (
-        "央行加息会通过什么传导路径影响本币汇率？"
-    ),
-}
+# 会话状态初始化
+st.session_state.setdefault("messages", [])
+st.session_state.setdefault("option_sets", {})
+st.session_state.setdefault("option_choice", None)
+st.session_state.setdefault("scenario", None)
 
 
 def get_llm_client():
@@ -44,11 +36,21 @@ def get_llm_client():
     return st.session_state.llm_client
 
 
-def clear_conversation():
-    """清空当前对话历史，回到欢迎界面。"""
+def reset_session():
+    """清空本局模拟的所有状态，回到"开始新模拟"入口。"""
     st.session_state.messages = []
-    st.session_state.initial_question = None
-    st.session_state.selected_suggestion = None
+    st.session_state.option_sets = {}
+    st.session_state.pending_options_index = None
+    st.session_state.scenario = None
+    st.session_state.option_choice = None
+
+
+def generate_scenario():
+    """调用模型构思一个随机的经济场景，并存入会话状态。"""
+    st.session_state.scenario = llm_client.get_response(
+        get_llm_client(),
+        build_chat_messages(get_scenario_prompt(), [], "请构思本局的经济场景。"),
+    )
 
 
 def history_to_text(chat_history):
@@ -56,23 +58,12 @@ def history_to_text(chat_history):
     return "\n".join(f"[{m['role']}]: {m['content']}" for m in chat_history)
 
 
-@st.dialog("法律声明")
-def show_disclaimer_dialog():
-    """展示法律声明弹窗。"""
-    st.caption("""
-        本助手由 DeepSeek 大模型驱动，仅用于宏观经济与政策的科普讨论，
-        不构成任何投资或政策建议。模型的回答可能存在错误、偏颇或不完整，
-        任何基于这些回答的决策都应结合权威数据并纳入人工判断。
-        请勿在对话中输入任何个人隐私或敏感信息。
-    """)
-
-
 # -----------------------------------------------------------------------------
 # 绘制 UI
 # -----------------------------------------------------------------------------
 
-# 顶部装饰符（仿照参考应用）
-st.html(div(style=styles(font_size=rem(4), line_height=1))["💹"])
+# 顶部装饰符
+st.html(div(style=styles(font_size=rem(4), line_height=1))["🧭"])
 
 title_row = st.container(
     horizontal=True,
@@ -81,94 +72,109 @@ title_row = st.container(
 
 with title_row:
     st.title(
-        ":material/account_balance: 宏观经济政策助手",
+        ":material/account_balance: 宏观经济政策模拟器",
         anchor=False,
         width="stretch",
     )
+    st.button(
+        "新模拟",
+        icon=":material/refresh:",
+        on_click=reset_session,
+    )
 
-# 判断用户是否刚在欢迎界面问过问题 / 点过示例
-user_just_asked_initial_question = (
-    "initial_question" in st.session_state and st.session_state.initial_question
-)
-user_just_clicked_suggestion = (
-    "selected_suggestion" in st.session_state and st.session_state.selected_suggestion
-)
-user_first_interaction = user_just_asked_initial_question or user_just_clicked_suggestion
+# 尚无场景：展示开场说明 + "开始新模拟"按钮
+if not st.session_state.get("scenario"):
+    if "option_choice" not in st.session_state:
+        st.session_state.option_choice = None
+
+    st.markdown(
+        "你将被任命为某个虚构经济体的新任决策者。"
+        "系统会随机生成一个面临经济问题的国家，"
+        "你需要连续提出宏观对策，帮助它走出困境。"
+    )
+    st.button(
+        "开始新模拟",
+        type="primary",
+        on_click=generate_scenario,
+    )
+    st.stop()
+
+# 已有场景：展示场景描述 + 对策输入框
+st.markdown(st.session_state.scenario)
+
+# 判断用户是否刚点过备选对策按钮
+option_choice = st.session_state.get("option_choice")
+if option_choice:
+    st.session_state.option_choice = None
+    user_message = option_choice
+else:
+    user_message = st.chat_input("请输入你的宏观对策（如货币政策、财政政策、结构性改革等）...")
+
 has_message_history = (
     "messages" in st.session_state and len(st.session_state.messages) > 0
 )
 
-# 尚未对话：展示欢迎界面（输入框 + 示例问题 pills + 声明按钮）
-if not user_first_interaction and not has_message_history:
-    st.session_state.messages = []
-
-    with st.container():
-        st.chat_input("请提出你的宏观经济问题...", key="initial_question")
-        st.pills(
-            label="示例问题",
-            label_visibility="collapsed",
-            options=SUGGESTIONS.keys(),
-            key="selected_suggestion",
-        )
-
-    st.button(
-        "&nbsp;:small[:gray[:material/balance: 法律声明]]",
-        type="tertiary",
-        on_click=show_disclaimer_dialog,
-    )
+# 首轮：场景描述会始终展示在顶部，历史为空即可直接进入
+if not has_message_history and not user_message:
+    st.caption("在上方输入框中提交你的第一个对策。")
     st.stop()
 
-# 已进入对话：底部为持续输入框
-user_message = st.chat_input("追问一个后续问题...")
+if has_message_history:
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            if message["role"] == "assistant":
+                st.container()  # 修复"幽灵消息"bug
+            st.markdown(message["content"])
 
-# 若用户是从欢迎界面进来的，把欢迎界面的输入作为首条消息
-if not user_message:
-    if user_just_asked_initial_question:
-        user_message = st.session_state.initial_question
-    if user_just_clicked_suggestion:
-        user_message = SUGGESTIONS[st.session_state.selected_suggestion]
-
-with title_row:
-    st.button(
-        "重新开始",
-        icon=":material/refresh:",
-        on_click=clear_conversation,
-    )
-
-# 展示历史消息
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        if message["role"] == "assistant":
-            st.container()  # 修复"幽灵消息"bug
-        st.markdown(message["content"])
+# 渲染历史中已经生成的可选对策按钮
+for msg_index, options in (st.session_state.option_sets or {}).items():
+    if msg_index < len(st.session_state.messages):
+        with st.chat_message("assistant"):
+            st.caption("以下是可选的替代对策：")
+            for opt in options:
+                if st.button(opt, key=f"option_{msg_index}_{opt}"):
+                    st.session_state.option_sets.pop(msg_index, None)
+                    st.session_state.option_choice = opt
+                    st.rerun()
 
 # 处理用户新消息
-if user_message:
-    # Streamlit 的 Markdown 会把 "$" 当作 LaTeX 分隔符，这里转义掉
-    user_message = user_message.replace("$", r"\$")
+if not user_message:
+    st.stop()
 
-    # 显示用户消息气泡
-    with st.chat_message("user"):
-        st.text(user_message)
+# Streamlit 的 Markdown 会把 "$" 当作 LaTeX 分隔符，这里转义掉
+user_message = user_message.replace("$", r"\$")
 
-    # 组织历史上下文并发起请求
-    history = st.session_state.messages
-    messages = build_chat_messages(
-        system=get_system_prompt(),
-        history=history,
-        question=user_message,
-    )
+# 显示用户消息气泡
+with st.chat_message("user"):
+    st.text(user_message)
 
-    client = get_llm_client()
+# 组织历史上下文并发起请求
+history = st.session_state.messages
+messages = build_chat_messages(
+    system=get_system_prompt(scenario=st.session_state.scenario),
+    history=history,
+    question=user_message,
+)
 
-    # 显示助手气泡并流式输出
-    with st.chat_message("assistant"):
-        with st.spinner("政策分析中..."):
-            with st.container():
-                response = st.write_stream(
-                    llm_client.get_response_stream(client, messages)
-                )
+client = get_llm_client()
 
-    # 记录到会话历史
-    st.session_state.messages.append({"role": "user", "content": user_message})
-    st.session_state.messages.append({"role": "assistant", "content": response})
+# 显示助手气泡并流式输出
+with st.chat_message("assistant"):
+    with st.spinner("经济推演中..."):
+        with st.container():
+            response = st.write_stream(
+                llm_client.get_response_stream(client, messages)
+            )
+
+# 剥离"可选对策"块，抽出按钮选项
+clean_response, options = extract_options(response)
+
+# 记录到会话历史
+st.session_state.messages.append({"role": "user", "content": user_message})
+st.session_state.messages.append({"role": "assistant", "content": clean_response})
+
+# 记录本次可选对策（关联到刚写入的助手消息索引）
+if options:
+    if "option_sets" not in st.session_state:
+        st.session_state.option_sets = {}
+    st.session_state.option_sets[len(st.session_state.messages) - 1] = options

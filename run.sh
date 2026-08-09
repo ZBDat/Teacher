@@ -3,5 +3,5 @@
 set -euo pipefail
 exec streamlit run streamlit_app.py \
   --server.address 0.0.0.0 \
-  --server.port 8848 \
+  --server.port 9999 \
   --server.headless true

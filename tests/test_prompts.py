@@ -8,10 +8,24 @@ import prompts
 
 
 def test_get_system_prompt_mentions_policy_topics():
-    """系统提示词应覆盖宏观经济的核心主题。"""
-    system = prompts.get_system_prompt()
+    """模拟推演的系统提示词应覆盖宏观经济的核心主题。"""
+    system = prompts.get_system_prompt(scenario="某虚构经济体：高通胀 + 高财政赤字。")
     assert "宏观经济" in system
     assert "货币" in system or "财政" in system
+
+
+def test_get_system_prompt_embeds_scenario():
+    """系统提示词应把传入的场景文本嵌入其中。"""
+    scenario = "瓦尔兰国：通胀率 40%，财政赤字 8%，汇率持续贬值。"
+    system = prompts.get_system_prompt(scenario=scenario)
+    assert scenario in system
+
+
+def test_get_scenario_prompt_avoids_real_countries():
+    """场景生成提示词应要求虚构，且不点名真实国家。"""
+    prompt = prompts.get_scenario_prompt()
+    assert "虚构" in prompt
+    assert "绝不能点名" in prompt
 
 
 def test_build_chat_messages_order():
@@ -44,6 +58,31 @@ def test_build_chat_messages_with_empty_history():
         {"role": "system", "content": "SYS"},
         {"role": "user", "content": "第一个问题"},
     ]
+
+
+def test_extract_options_returns_clean_text_and_options():
+    """应剥离标记块并返回前 3 个选项文本。"""
+    raw = (
+        "该对策难以直接落地。\n\n"
+        "【可选对策】\n"
+        "1. 提高基准利率以抑制通胀。\n"
+        "2. 削减财政支出降低赤字。\n"
+        "3. 引入汇率稳定机制。\n"
+        "【可选对策结束】"
+    )
+    clean, options = prompts.extract_options(raw)
+    assert "该对策难以直接落地" in clean
+    assert "【可选对策" not in clean
+    assert options[0].startswith("1.")
+    assert len(options) == 3
+
+
+def test_extract_options_returns_none_without_block():
+    """未包含标记块时应原样返回文本，且选项为 None。"""
+    text = "一切正常，这里是普通回复。"
+    clean, options = prompts.extract_options(text)
+    assert clean == text
+    assert options is None
 
 
 def test_get_api_key_reads_env(monkeypatch):
